@@ -44,7 +44,8 @@
 	const DEFAULT_HEIGHT = 500;
 
 	let { title = 'Storylog', stories }: Props = $props();
-	let sidebarOpen = $state(true);
+	// Start with sidebar closed on mobile/tablet, open on desktop
+	let sidebarOpen = $state(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 	let registeredStories = $state<StoryItem[]>([]);
 	let selectedId = $state<string>('');
 	let loading = $state(true);
@@ -138,8 +139,8 @@
 			expandedSections.add(story.section);
 			expandedSections = new Set(expandedSections);
 		}
-		// Close sidebar on mobile after selection
-		if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+		// Close sidebar on mobile/tablet after selection
+		if (typeof window !== 'undefined' && window.innerWidth < 1024) {
 			sidebarOpen = false;
 		}
 	}
@@ -204,26 +205,68 @@
 	setContext('catalog', catalogContext);
 
 	// Load all story files
-	onMount(async () => {
+	onMount(() => {
 		initializeTheme();
 
-		const modules = [];
+		// Set initial sidebar state based on screen size and handle resize
+		if (typeof window !== 'undefined') {
+			sidebarOpen = window.innerWidth >= 1024;
+			
+			// Listen for window resize to adjust sidebar
+			const handleResize = () => {
+				if (window.innerWidth >= 1024) {
+					sidebarOpen = true;
+				}
+				// Keep current state on tablet/mobile, don't auto-close when resizing down
+			};
+			
+			window.addEventListener('resize', handleResize);
+			
+			// Load modules asynchronously
+			(async () => {
+				const modules = [];
 
-		for (const [path, loader] of Object.entries(stories)) {
-			const module = await loader();
-			const { section, fileName } = parseStoryPath(path);
+				for (const [path, loader] of Object.entries(stories)) {
+					const module = await loader();
+					const { section, fileName } = parseStoryPath(path);
 
-			// Set context for this stories file
-			modules.push({
-				component: module.default,
-				section,
-				fileName,
-				path
-			});
+					// Set context for this stories file
+					modules.push({
+						component: module.default,
+						section,
+						fileName,
+						path
+					});
+				}
+
+				loadedModules = modules;
+				loading = false;
+			})();
+			
+			return () => {
+				window.removeEventListener('resize', handleResize);
+			};
+		} else {
+			// SSR fallback
+			(async () => {
+				const modules = [];
+
+				for (const [path, loader] of Object.entries(stories)) {
+					const module = await loader();
+					const { section, fileName } = parseStoryPath(path);
+
+					modules.push({
+						component: module.default,
+						section,
+						fileName,
+						path
+					});
+				}
+
+				loadedModules = modules;
+				loading = false;
+			})();
 		}
-
-		loadedModules = modules;
-		loading = false;
 	});
 
 	// Filter stories by search query
@@ -334,11 +377,11 @@
 			return;
 		}
 
-		// Esc: Clear search or close sidebar on mobile
+		// Esc: Clear search or close sidebar on mobile/tablet
 		if (event.key === 'Escape') {
 			if (searchQuery) {
 				clearSearch();
-			} else if (typeof window !== 'undefined' && window.innerWidth <= 768 && sidebarOpen) {
+			} else if (typeof window !== 'undefined' && window.innerWidth < 1024 && sidebarOpen) {
 				toggleSidebar();
 			}
 			return;
@@ -376,6 +419,21 @@
 <svelte:window onkeydown={handleKeyDown} onmousemove={handleResize} onmouseup={stopResize} />
 
 <div class="storylog">
+	<!-- Backdrop overlay for mobile/tablet when sidebar is open -->
+	<button
+		type="button"
+		class="sidebar-backdrop"
+		class:visible={sidebarOpen}
+		onclick={toggleSidebar}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				toggleSidebar();
+			}
+		}}
+		aria-label="Close sidebar"
+	></button>
+	
 	<aside class="sidebar" class:collapsed={!sidebarOpen}>
 		<div class="sidebar-header">
 			<h1 class="sidebar-title">{title}</h1>
@@ -635,6 +693,36 @@
 		transition: background-color 0.2s ease, color 0.2s ease;
 	}
 
+	/* Sidebar backdrop overlay for mobile/tablet */
+	.sidebar-backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 99;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.3s ease;
+		backdrop-filter: blur(2px);
+		border: none;
+		padding: 0;
+		margin: 0;
+		cursor: pointer;
+	}
+
+	.sidebar-backdrop.visible {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	@media (min-width: 1024px) {
+		.sidebar-backdrop {
+			display: none;
+		}
+	}
+
 	/* Sidebar */
 	.sidebar {
 		width: 280px;
@@ -648,10 +736,37 @@
 		height: 100vh;
 		transition: transform 0.3s ease, background-color 0.2s ease, border-color 0.2s ease;
 		z-index: 100;
+		box-shadow: none;
+	}
+
+	@media (max-width: 640px) {
+		.sidebar {
+			width: 260px;
+		}
 	}
 
 	.sidebar.collapsed {
-		transform: translateX(-280px);
+		transform: translateX(-100%);
+	}
+
+	@media (min-width: 1024px) {
+		.sidebar {
+			box-shadow: none;
+		}
+		
+		.sidebar.collapsed {
+			transform: translateX(-280px);
+		}
+	}
+
+	@media (max-width: 1023px) {
+		.sidebar:not(.collapsed) {
+			box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+		}
+	}
+
+	:global([data-theme='dark']) .sidebar:not(.collapsed) {
+		box-shadow: 2px 0 8px rgba(0, 0, 0, 0.5);
 	}
 
 	.sidebar-header {
@@ -811,6 +926,8 @@
 		font-weight: 500;
 		text-align: left;
 		gap: 0.5rem;
+		min-height: 44px;
+		touch-action: manipulation;
 	}
 
 	.nav-section-header:hover {
@@ -865,6 +982,8 @@
 		background: none;
 		cursor: pointer;
 		text-align: left;
+		min-height: 44px;
+		touch-action: manipulation;
 	}
 
 	.nav-variant-link :global(svg) {
@@ -901,10 +1020,21 @@
 		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
+		width: calc(100% - 280px);
 	}
 
-	.sidebar.collapsed + .main-content {
-		margin-left: 0;
+	@media (max-width: 1023px) {
+		.main-content {
+			margin-left: 0;
+			width: 100%;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.sidebar.collapsed + .main-content {
+			margin-left: 0;
+			width: 100%;
+		}
 	}
 
 	.canvas-header {
@@ -915,6 +1045,16 @@
 		align-items: center;
 		justify-content: space-between;
 		transition: background-color 0.2s ease, border-color 0.2s ease;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	@media (max-width: 768px) {
+		.canvas-header {
+			padding: 0.875rem 1rem;
+			flex-direction: column;
+			align-items: stretch;
+		}
 	}
 
 	.header-left {
@@ -937,10 +1077,13 @@
 		color: var(--storylog-text-secondary);
 		transition: all 0.2s;
 		flex-shrink: 0;
+		min-width: 44px;
+		min-height: 44px;
+		touch-action: manipulation;
 	}
 
 	/* Hide hamburger menu on desktop when sidebar is open (use sidebar toggle instead) */
-	@media (min-width: 769px) {
+	@media (min-width: 1024px) {
 		.sidebar:not(.collapsed) ~ .main-content .header-menu-toggle {
 			display: none;
 		}
@@ -985,10 +1128,33 @@
 		text-overflow: ellipsis;
 	}
 
+	@media (max-width: 640px) {
+		.canvas-breadcrumb {
+			font-size: 0.8125rem;
+		}
+		
+		.breadcrumb-variant {
+			font-size: 1rem;
+		}
+		
+		.breadcrumb-separator {
+			margin: 0 0.25rem;
+		}
+	}
+
 	.header-controls {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 768px) {
+		.header-controls {
+			width: 100%;
+			justify-content: space-between;
+			margin-top: 0.5rem;
+		}
 	}
 
 	.viewport-controls {
@@ -999,6 +1165,14 @@
 		border-radius: 6px;
 		border: 1px solid var(--storylog-border);
 		transition: background-color 0.2s ease, border-color 0.2s ease;
+		flex-wrap: wrap;
+	}
+
+	@media (max-width: 640px) {
+		.viewport-controls {
+			gap: 0.375rem;
+			padding: 0.25rem;
+		}
 	}
 
 	.viewport-btn {
@@ -1036,6 +1210,19 @@
 		font-weight: 500;
 	}
 
+	/* Hide viewport width text on small screens */
+	@media (max-width: 640px) {
+		.viewport-width {
+			display: none;
+		}
+		
+		.viewport-btn {
+			padding: 0.5rem;
+			min-width: 44px;
+			min-height: 44px;
+		}
+	}
+
 	.theme-toggle {
 		display: flex;
 		align-items: center;
@@ -1047,6 +1234,9 @@
 		cursor: pointer;
 		color: var(--storylog-text-secondary);
 		transition: all 0.2s;
+		min-width: 44px;
+		min-height: 44px;
+		touch-action: manipulation;
 	}
 
 	.theme-toggle:hover {
@@ -1064,6 +1254,24 @@
 		min-height: 400px;
 		overflow-y: auto;
 		overflow-x: auto;
+	}
+
+	@media (max-width: 1024px) {
+		.canvas {
+			padding: 2rem 1.5rem;
+		}
+	}
+
+	@media (max-width: 768px) {
+		.canvas {
+			padding: 1.5rem 1rem;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.canvas {
+			padding: 1rem 0.75rem;
+		}
 	}
 
 	.canvas:has(.viewport-container.full) {
@@ -1119,6 +1327,20 @@
 		min-height: 0;
 	}
 
+	@media (max-width: 768px) {
+		.canvas-content {
+			padding: 1.5rem;
+			padding-bottom: calc(1.5rem + 20px);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.canvas-content {
+			padding: 1rem;
+			padding-bottom: calc(1rem + 20px);
+		}
+	}
+
 	.viewport-container.full .canvas-content {
 		padding-bottom: 2rem;
 		height: 100%;
@@ -1143,6 +1365,15 @@
 		z-index: 10;
 		user-select: none;
 		opacity: 0.7;
+		touch-action: none;
+		min-height: 44px;
+	}
+
+	@media (max-width: 768px) {
+		.resize-handle {
+			min-height: 32px;
+			height: 32px;
+		}
 	}
 
 	.resize-handle:hover {
@@ -1210,41 +1441,57 @@
 		color: var(--storylog-text-muted);
 	}
 
-	/* Responsive */
-	@media (max-width: 768px) {
-		.sidebar {
-			transform: translateX(-280px);
-		}
-
-		.sidebar:not(.collapsed) {
-			transform: translateX(0);
-		}
-
-		.main-content {
-			margin-left: 0;
-		}
-
+	/* Responsive - Mobile and Tablet improvements */
+	@media (max-width: 1023px) {
 		.sidebar-toggle {
+			display: flex;
+			min-width: 44px;
+			min-height: 44px;
+			touch-action: manipulation;
+		}
+	}
+
+	@media (max-width: 768px) {
+		.search-shortcut {
 			display: none;
 		}
-
-		.canvas {
-			padding: 2rem 1rem;
+		
+		.search-input {
+			padding-right: 2rem;
 		}
-
-		.canvas-header {
-			padding: 1rem;
+		
+		.search-clear {
+			right: 0.75rem;
 		}
+	}
 
-		.header-controls {
-			width: 100%;
-			justify-content: space-between;
+	/* Improve touch targets and spacing on small screens */
+	@media (max-width: 640px) {
+		.sidebar-header {
+			padding: 1rem 0.875rem;
 		}
-
-		.viewport-controls {
-			flex-wrap: wrap;
+		
+		.search-container {
+			padding: 0.875rem;
 		}
-
+		
+		.sidebar-nav {
+			padding: 0.875rem 0;
+		}
+		
+		.nav-section-header {
+			padding: 0.625rem 0.75rem;
+			margin: 0 0.375rem;
+		}
+		
+		.nav-section-stories {
+			padding-left: 1.5rem;
+		}
+		
+		.nav-variant-link {
+			padding: 0.625rem 0.75rem;
+			margin: 0.125rem 0.375rem;
+		}
 	}
 
 	/* Scrollbar styling */
