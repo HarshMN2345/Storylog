@@ -7,7 +7,7 @@ This guide shows you how to use Svelte Catalog to showcase your own components.
 ### 1. Install the package
 
 ```bash
-npm install svelte-catalog
+bun install storylog
 ```
 
 ### 2. Create a catalog page
@@ -16,7 +16,7 @@ Create a new file (e.g., `src/routes/catalog/+page.svelte`):
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 	import MyButton from '$lib/components/MyButton.svelte';
 	import MyCard from '$lib/components/MyCard.svelte';
 </script>
@@ -44,7 +44,7 @@ Navigate to `/catalog` to see your component showcase!
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 	import Button from '$lib/Button.svelte';
 </script>
 
@@ -89,7 +89,7 @@ Navigate to `/catalog` to see your component showcase!
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 	import TextInput from '$lib/forms/TextInput.svelte';
 	import Select from '$lib/forms/Select.svelte';
 	import Checkbox from '$lib/forms/Checkbox.svelte';
@@ -139,7 +139,7 @@ Navigate to `/catalog` to see your component showcase!
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 	import Card from '$lib/Card.svelte';
 	import Avatar from '$lib/Avatar.svelte';
 </script>
@@ -358,7 +358,7 @@ npm run build
 
 ### Adding to Existing SvelteKit App
 
-1. Install: `npm install svelte-catalog`
+1. Install: `npm install storylog`
 2. Create: `src/routes/design-system/+page.svelte`
 3. Import your components and create sections
 4. Done!
@@ -370,7 +370,7 @@ Create a dedicated project just for your component catalog:
 ```bash
 npm create svelte@latest my-catalog
 cd my-catalog
-npm install svelte-catalog
+npm install storylog
 # Create your catalog pages
 npm run dev
 ```

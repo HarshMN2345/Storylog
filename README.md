@@ -23,13 +23,13 @@ A lightweight, zero-config alternative to Storybook for previewing and exploring
 ### Installation
 
 ```bash
-npm install svelte-catalog
+npm install storylog
 # or
-yarn add svelte-catalog
+yarn add storylog
 # or
-pnpm add svelte-catalog
+pnpm add storylog
 # or
-bun add svelte-catalog
+bun add storylog
 ```
 
 ### Basic Setup

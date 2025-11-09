@@ -6,7 +6,7 @@ Copy this template to get started with your component catalog quickly!
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 	// Import your components here
 	// import Button from '$lib/Button.svelte';
 	// import Card from '$lib/Card.svelte';
@@ -36,7 +36,7 @@ Copy this template to get started with your component catalog quickly!
 
 ```svelte
 <script>
-	import { Catalog, Section, Variant } from 'svelte-catalog';
+	import { Storylog, Story } from 'storylog';
 
 	// Import your actual components
 	// import Button from '$lib/Button.svelte';
